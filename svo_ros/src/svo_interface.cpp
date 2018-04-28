@@ -222,6 +222,8 @@ void SvoInterface::stereoCallback(
     const sensor_msgs::ImageConstPtr& msg0,
     const sensor_msgs::ImageConstPtr& msg1)
 {
+  std::cout << "diff: " << msg0->header.stamp.toSec() - msg1->header.stamp.toSec() << std::endl;
+
   if(idle_)
     return;
 
@@ -345,9 +347,12 @@ void SvoInterface::monoLoop()
 
 void SvoInterface::stereoLoop()
 {
-  typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image> ExactPolicy;
-  typedef message_filters::Synchronizer<ExactPolicy> ExactSync;
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image,sensor_msgs::Image> ApproxPolicy;
+  typedef message_filters::Synchronizer<ApproxPolicy> ApproxSync;
+  //typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image> ExactPolicy;
+  //typedef message_filters::Synchronizer<ExactPolicy> ExactSync;
 
+/*
   ros::NodeHandle nh(nh_, "image_thread");
   ros::CallbackQueue queue;
   nh.setCallbackQueue(&queue);
@@ -359,6 +364,19 @@ void SvoInterface::stereoLoop()
   image_transport::SubscriberFilter sub0(it, cam0_topic, 1, std::string("raw"));
   image_transport::SubscriberFilter sub1(it, cam1_topic, 1, std::string("raw"));
   ExactSync sync_sub(ExactPolicy(5), sub0, sub1);
+  sync_sub.registerCallback(boost::bind(&svo::SvoInterface::stereoCallback, this, _1, _2));
+*/
+  ros::NodeHandle nh(nh_, "image_thread");
+  ros::CallbackQueue queue;
+  nh.setCallbackQueue(&queue);
+
+  // subscribe to cam msgs
+  std::string cam0_topic(vk::param<std::string>(pnh_, "cam0_topic", "/cam0/image_raw"));
+  std::string cam1_topic(vk::param<std::string>(pnh_, "cam1_topic", "/cam1/image_raw"));
+  image_transport::ImageTransport it(nh);
+  image_transport::SubscriberFilter sub0(it, cam0_topic, 1, std::string("raw"));
+  image_transport::SubscriberFilter sub1(it, cam1_topic, 1, std::string("raw"));
+  ApproxSync sync_sub(ApproxPolicy(5), sub0, sub1);
   sync_sub.registerCallback(boost::bind(&svo::SvoInterface::stereoCallback, this, _1, _2));
 
   while(ros::ok() && !quit_)
